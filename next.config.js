@@ -5,7 +5,11 @@ const nextConfig = {
   },
   env: {
     YOUTUBE_API_KEY: process.env.YOUTUBE_API_KEY,
-  }
+  },
+  experimental: {
+    serverComponentsExternalPackages: ['socket.io']
+  },
+  output: 'standalone'
 }
 
 module.exports = nextConfig
