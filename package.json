@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "npx prisma generate",
     "dev": "node server.js",
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
@@ -16,6 +17,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.10.1",
+    "prisma": "^6.10.1",
     "clsx": "^2.1.1",
     "googleapis": "^150.0.1",
     "lucide-react": "^0.294.0",
