@@ -9,14 +9,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 })
     }
 
+    // Generate unique room code
     const code = Math.random().toString(36).substring(2, 8).toUpperCase()
 
-    const user = await prisma.user.upsert({
-      where: { username },
-      update: {}, 
-      create: { username }
+    // Don't use upsert - just create the user directly since username is not unique
+    const user = await prisma.user.create({
+      data: { username }
     })
 
+    // Create room
     const room = await prisma.room.create({
       data: {
         name,
@@ -34,10 +35,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, room })
   } catch (error) {
     console.error('Error creating room:', error)
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Failed to create room',
-      details: error.message
-    }, { status: 500 })
+    return NextResponse.json({ success: false, error: 'Failed to create room' }, { status: 500 })
   }
 }

@@ -110,31 +110,35 @@ export default function RoomPage() {
           timestamp?: number 
         }) => {
           console.log('Music sync received:', data);
+          console.log('Current tab isMainTab:', isMainTab.current);
           
+          // Always update state for ALL tabs, not just main tab
           switch (data.action) {
             case "play":
+              console.log('Received PLAY command');
               if (data.trackId) {
                 const track = playlist.find(t => t.id === data.trackId);
-                if (track) setCurrentTrack(track);
+                if (track) {
+                  console.log('Setting track:', track.title);
+                  setCurrentTrack(track);
+                }
               }
               if (data.currentTime !== undefined) setCurrentTime(data.currentTime);
               setIsPlaying(true);
               break;
               
             case "pause":
+              console.log('Received PAUSE command');
               if (data.currentTime !== undefined) setCurrentTime(data.currentTime);
               setIsPlaying(false);
               break;
               
-            case "seek":
-              if (data.currentTime !== undefined) setCurrentTime(data.currentTime);
-              if (data.isPlaying !== undefined) setIsPlaying(data.isPlaying);
-              break;
-              
             case "trackChange":
+              console.log('Received TRACK CHANGE command');
               if (data.trackId) {
                 const track = playlist.find(t => t.id === data.trackId);
                 if (track) {
+                  console.log('Changing to track:', track.title);
                   setCurrentTrack(track);
                   setCurrentTime(0);
                   setIsPlaying(data.isPlaying || false);
@@ -144,6 +148,7 @@ export default function RoomPage() {
               
             default:
               // Fallback for legacy sync messages
+              console.log('Received legacy sync');
               if (data.currentTime !== undefined) setCurrentTime(data.currentTime);
               if (data.isPlaying !== undefined) setIsPlaying(data.isPlaying);
               if (data.trackId) {
@@ -152,6 +157,7 @@ export default function RoomPage() {
               }
           }
 
+          // Broadcast to other tabs
           broadcastToOtherTabs('MUSIC_SYNC', data);
         });
 
@@ -320,14 +326,20 @@ export default function RoomPage() {
 
   const handlePlayTrack = async (track: MusicTrack) => {
     console.log('Playing track:', track);
+    
+    // Update local state immediately
+    setCurrentTrack(track);
+    setIsPlaying(true);
+    setCurrentTime(0);
+    
     const success = await updateRoomState({
       currentSong: track.id,
       isPlaying: true,
       currentTime: 0
     });
     
-    if (success && socketManager.current && isMainTab.current) {
-      // Emit track change event to sync all clients
+    if (success && socketManager.current) {
+      // Emit to ALL clients
       if (socketManager.current.getSocket()) {
         socketManager.current.getSocket()?.emit('track:change', {
           roomId,
@@ -342,28 +354,28 @@ export default function RoomPage() {
     }
   };
 
+
   const handlePlayPause = async () => {
     console.log('Play/Pause clicked, current state:', isPlaying);
     const newPlayingState = !isPlaying;
     
+    setIsPlaying(newPlayingState);
+    
     const success = await updateRoomState({
       isPlaying: newPlayingState,
-      currentTime: currentTime 
+      currentTime: currentTime
     });
     
-    if (success && socketManager.current && isMainTab.current) {
-      if (newPlayingState) {
-        socketManager.current.playMusic(roomId, currentTrack?.id);
-        if (socketManager.current.getSocket()) {
+    if (success && socketManager.current) {
+      // Emit to ALL clients (remove isMainTab check)
+      if (socketManager.current.getSocket()) {
+        if (newPlayingState) {
           socketManager.current.getSocket()?.emit('music:play', { 
             roomId, 
             trackId: currentTrack?.id, 
             currentTime 
           });
-        }
-      } else {
-        socketManager.current.pauseMusic(roomId);
-        if (socketManager.current.getSocket()) {
+        } else {
           socketManager.current.getSocket()?.emit('music:pause', { 
             roomId, 
             currentTime 
@@ -374,6 +386,8 @@ export default function RoomPage() {
     
     if (!success) {
       console.error('Failed to update play/pause state');
+      // Revert local state if API call failed
+      setIsPlaying(!newPlayingState);
     }
   };
 

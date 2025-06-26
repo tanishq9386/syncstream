@@ -37,7 +37,9 @@ export default function MusicPlayer({
   const [isMuted, setIsMuted] = useState(false)
   const [isPlayerReady, setIsPlayerReady] = useState(false)
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(null)
+  const [lastSyncTime, setLastSyncTime] = useState(0)
 
+  // Load YouTube API once
   useEffect(() => {
     if (!window.YT) {
       const tag = document.createElement('script')
@@ -54,10 +56,12 @@ export default function MusicPlayer({
     }
   }, [])
 
+  // Initialize/reinitialize player when track changes
   useEffect(() => {
     if (currentTrack && isPlayerReady && playerRef.current) {
       console.log('Track changed to:', currentTrack.title)
       
+      // If player exists and it's just a track change, use loadVideoById
       if (player && currentVideoId !== currentTrack.id) {
         console.log('Loading new video without destroying player')
         
@@ -72,6 +76,7 @@ export default function MusicPlayer({
           player.setVolume(isMuted ? 0 : volume)
           
           if (isPlaying) {
+            console.log('Auto-playing new track after load')
             player.playVideo()
           }
         }, 100)
@@ -79,6 +84,7 @@ export default function MusicPlayer({
         return
       }
       
+      // Create new player only if none exists
       if (!player) {
         console.log('Creating new player for track:', currentTrack.title)
 
@@ -105,7 +111,7 @@ export default function MusicPlayer({
               event.target.setVolume(isMuted ? 0 : volume)
               
               if (isPlaying) {
-                console.log('Auto-playing new track')
+                console.log('Auto-playing new track on ready')
                 event.target.playVideo()
               }
             },
@@ -126,40 +132,84 @@ export default function MusicPlayer({
     }
   }, [currentTrack, isPlayerReady])
 
+  // Handle play/pause state changes with enhanced synchronization
   useEffect(() => {
     if (player && player.playVideo && player.pauseVideo) {
-      console.log('Updating play state:', isPlaying)
-      if (isPlaying) {
-        player.playVideo()
-      } else {
-        player.pauseVideo()
-      }
+      console.log('Updating play state:', isPlaying, 'for track:', currentTrack?.title)
+      
+      // Add a small delay to ensure player is ready
+      setTimeout(() => {
+        if (isPlaying) {
+          console.log('Forcing player to play')
+          player.playVideo()
+        } else {
+          console.log('Forcing player to pause')
+          player.pauseVideo()
+        }
+      }, 50)
     }
-  }, [isPlaying, player])
+  }, [isPlaying, player, currentTrack?.id]) // Add currentTrack.id to force sync on track changes
 
+  // Handle volume changes
   useEffect(() => {
     if (player && player.setVolume) {
       player.setVolume(isMuted ? 0 : volume)
     }
   }, [volume, isMuted, player])
 
+  // Enhanced external sync handler - this is crucial for multi-tab sync
+  useEffect(() => {
+    if (player && currentTrack && player.getCurrentTime && player.seekTo) {
+      const handleExternalSync = () => {
+        try {
+          const playerCurrentTime = player.getCurrentTime()
+          const timeDiff = Math.abs(playerCurrentTime - currentTime)
+          const now = Date.now()
+          
+          // Only sync if:
+          // 1. Time difference is significant (more than 2 seconds)
+          // 2. We haven't synced recently (prevent sync loops)
+          // 3. Current time is valid
+          if (timeDiff > 2 && now - lastSyncTime > 1000 && currentTime >= 0) {
+            console.log('Syncing player time from', playerCurrentTime, 'to', currentTime)
+            player.seekTo(currentTime, true)
+            setLastSyncTime(now)
+          }
+        } catch (error) {
+          console.error('Error during time sync:', error)
+        }
+      }
+      
+      const timeoutId = setTimeout(handleExternalSync, 200)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [currentTime, player, currentTrack, lastSyncTime])
+
+  // Force player state sync when receiving external updates
   useEffect(() => {
     if (player && currentTrack) {
-      const handleExternalSync = () => {
-        const playerCurrentTime = player.getCurrentTime ? player.getCurrentTime() : 0;
-        const timeDiff = Math.abs(playerCurrentTime - currentTime);
-        
-        if (timeDiff > 1) {
-          console.log('Syncing player time from', playerCurrentTime, 'to', currentTime);
-          if (player.seekTo) {
-            player.seekTo(currentTime, true);
+      console.log('External sync trigger - isPlaying:', isPlaying, 'currentTime:', currentTime)
+      
+      // Force player state to match external state
+      setTimeout(() => {
+        try {
+          if (isPlaying) {
+            if (player.getPlayerState && player.getPlayerState() !== window.YT.PlayerState.PLAYING) {
+              console.log('Force playing video due to external sync')
+              player.playVideo()
+            }
+          } else {
+            if (player.getPlayerState && player.getPlayerState() === window.YT.PlayerState.PLAYING) {
+              console.log('Force pausing video due to external sync')
+              player.pauseVideo()
+            }
           }
+        } catch (error) {
+          console.error('Error forcing player state:', error)
         }
-      };
-      const timeoutId = setTimeout(handleExternalSync, 100);
-      return () => clearTimeout(timeoutId);
+      }, 100)
     }
-  }, [currentTime, player, currentTrack]);
+  }, [isPlaying, currentTime, player, currentTrack?.id])
 
   const handleVolumeChange = (newVolume: number) => {
     setVolume(newVolume)
@@ -233,6 +283,10 @@ export default function MusicPlayer({
           <h3 className="font-semibold text-white truncate">{currentTrack.title}</h3>
           <p className="text-gray-400 truncate">{currentTrack.artist}</p>
           <p className="text-xs text-purple-400 mt-1">{getLoopTooltip()}</p>
+          {/* Debug info - remove in production */}
+          <p className="text-xs text-gray-500 mt-1">
+            Playing: {isPlaying ? 'Yes' : 'No'} | Time: {Math.floor(currentTime)}s
+          </p>
         </div>
       </div>
 
