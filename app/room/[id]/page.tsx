@@ -27,10 +27,8 @@ export default function RoomPage() {
     const newSocket = io()
     setSocket(newSocket)
 
-    // Fetch room data
     fetchRoom()
 
-    // Socket event listeners
     newSocket.on('room:updated', (updatedRoom: Room) => {
       console.log('Room updated via socket:', updatedRoom)
       setRoom(updatedRoom)
@@ -50,7 +48,6 @@ export default function RoomPage() {
       setIsPlaying(data.isPlaying)
     })
 
-    // Join room
     newSocket.emit('room:join', { roomId, username })
 
     return () => {
@@ -101,7 +98,6 @@ export default function RoomPage() {
         const result = await response.json()
         console.log('Room state updated:', result)
         
-        // Update local state immediately
         if (updates.currentSong !== undefined) {
           const track = playlist.find(t => t.id === updates.currentSong)
           setCurrentTrack(track || null)
@@ -113,7 +109,6 @@ export default function RoomPage() {
           setCurrentTime(updates.currentTime)
         }
         
-        // Emit socket event for real-time sync
         if (socket) {
           socket.emit('room:update', { roomId, updates })
         }
@@ -157,13 +152,11 @@ export default function RoomPage() {
     console.log('Loop mode changed to:', nextMode)
   }
 
-  // Custom loop logic - this handles all looping behavior
   const handleTrackEnded = async () => {
     console.log('Track ended, loop mode:', loopMode)
     
     if (loopMode === 'single' && currentTrack) {
       console.log('Single loop: restarting current track')
-      // Restart the same track
       await updateRoomState({
         currentSong: currentTrack.id,
         isPlaying: true,
@@ -172,7 +165,6 @@ export default function RoomPage() {
       return
     }
     
-    // For playlist loop or normal mode, go to next track
     await handleNext()
   }
 
@@ -189,10 +181,8 @@ export default function RoomPage() {
     const currentIndex = playlist.findIndex(track => track.id === currentTrack?.id)
     console.log('Current track index:', currentIndex)
     
-    // Calculate next index
     let nextIndex = (currentIndex + 1) % playlist.length
     
-    // Handle end of playlist based on loop mode
     if (currentIndex === playlist.length - 1) {
       if (loopMode === 'playlist') {
         console.log('Playlist loop: going to start')
@@ -225,10 +215,8 @@ export default function RoomPage() {
     const currentIndex = playlist.findIndex(track => track.id === currentTrack?.id)
     console.log('Current track index:', currentIndex)
     
-    // Calculate previous index
     let previousIndex = currentIndex <= 0 ? playlist.length - 1 : currentIndex - 1
     
-    // Handle start of playlist based on loop mode
     if (currentIndex === 0) {
       if (loopMode === 'playlist') {
         console.log('Playlist loop: going to end')
@@ -262,10 +250,7 @@ export default function RoomPage() {
       
       if (result.success) {
         console.log('Track added successfully')
-        // Refresh room data to get updated playlist
         await fetchRoom()
-        
-        // Auto-play if no current track
         if (!currentTrack) {
           console.log('Auto-playing first track')
           await handlePlayTrack(track)
@@ -296,17 +281,12 @@ export default function RoomPage() {
 
       if (response.ok && result.success) {
         console.log('Track removed successfully')
-        
-        // Update local playlist state immediately
         const updatedPlaylist = playlist.filter(track => track.id !== trackId)
         setPlaylist(updatedPlaylist)
-        
-        // If removed track was current track, handle appropriately
         if (currentTrack?.id === trackId) {
           console.log('Removed track was currently playing')
           
           if (updatedPlaylist.length === 0) {
-            // No tracks left, stop everything
             console.log('No tracks left in playlist')
             setCurrentTrack(null)
             await updateRoomState({
@@ -315,7 +295,6 @@ export default function RoomPage() {
               playlist: []
             })
           } else {
-            // Play next track or first track
             const currentIndex = playlist.findIndex(track => track.id === trackId)
             let nextTrack = updatedPlaylist[currentIndex] || updatedPlaylist[0]
             
@@ -328,16 +307,11 @@ export default function RoomPage() {
             })
           }
         } else {
-          // Just update the playlist in the database
           await updateRoomState({
             playlist: updatedPlaylist
           })
         }
-        
-        // Refresh room data to ensure consistency
         await fetchRoom()
-        
-        // Emit socket event for real-time sync
         if (socket) {
           socket.emit('track:removed', { roomId, trackId, updatedPlaylist })
         }
@@ -357,7 +331,6 @@ export default function RoomPage() {
     }
   }
 
-  // Check if there's a previous track available
   const hasPreviousTrack = () => {
     if (playlist.length <= 1) return false
     const currentIndex = playlist.findIndex(track => track.id === currentTrack?.id)
@@ -394,7 +367,7 @@ export default function RoomPage() {
               onNext={handleNext}
               onPrevious={handlePrevious}
               onTimeUpdate={handleTimeUpdate}
-              onTrackEnded={handleTrackEnded}  // Add this new prop
+              onTrackEnded={handleTrackEnded} 
               hasPreviousTrack={hasPreviousTrack()}
               loopMode={loopMode}
               onToggleLoop={toggleLoopMode}
@@ -410,7 +383,7 @@ export default function RoomPage() {
               playlist={playlist}
               onRemoveTrack={handleRemoveTrack}
               onPlayTrack={handlePlayTrack}
-              currentTrack={currentTrack || undefined}  // Add this line
+              currentTrack={currentTrack || undefined}
             />
           </div>
         </div>

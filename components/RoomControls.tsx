@@ -9,7 +9,7 @@ interface RoomControlsProps {
   playlist: MusicTrack[]
   onRemoveTrack: (trackId: string) => void
   onPlayTrack: (track: MusicTrack) => void
-  currentTrack?: MusicTrack  // Add this prop
+  currentTrack?: MusicTrack
 }
 
 export default function RoomControls({ 
@@ -17,7 +17,7 @@ export default function RoomControls({
   playlist, 
   onRemoveTrack, 
   onPlayTrack,
-  currentTrack  // Add this prop
+  currentTrack 
 }: RoomControlsProps) {
   const [copied, setCopied] = useState(false)
 
@@ -59,9 +59,7 @@ export default function RoomControls({
             <p className="text-gray-400 text-center py-4">No tracks in playlist</p>
           ) : (
             playlist.map((track, index) => {
-              // Use currentTrack prop instead of room.currentSong for more reliable highlighting
               const isCurrentTrack = currentTrack?.id === track.id
-              
               return (
                 <div
                   key={track.id}

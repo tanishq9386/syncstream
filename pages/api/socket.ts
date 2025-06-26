@@ -106,7 +106,6 @@ export default async function SocketHandler(
           
           const updateData: any = { playlist: updatedPlaylist }
           
-          // If no current song, set this as current
           if (!room.currentSong && updatedPlaylist.length === 1) {
             updateData.currentSong = track.id
           }

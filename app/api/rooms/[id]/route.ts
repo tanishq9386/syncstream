@@ -17,7 +17,6 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Room not found' })
     }
 
-    // Parse playlist from JSON
     const roomWithPlaylist = {
       ...room,
       playlist: Array.isArray(room.playlist) ? room.playlist : []

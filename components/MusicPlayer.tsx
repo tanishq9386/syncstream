@@ -12,7 +12,7 @@ interface MusicPlayerProps {
   onNext: () => void
   onPrevious: () => void
   onTimeUpdate: (time: number) => void
-  onTrackEnded: () => void  // Add this new prop
+  onTrackEnded: () => void  
   hasPreviousTrack: boolean
   loopMode: 'none' | 'playlist' | 'single'
   onToggleLoop: () => void
@@ -26,7 +26,7 @@ export default function MusicPlayer({
   onNext,
   onPrevious,
   onTimeUpdate,
-  onTrackEnded,  // Add this
+  onTrackEnded,  
   hasPreviousTrack,
   loopMode,
   onToggleLoop
@@ -38,7 +38,6 @@ export default function MusicPlayer({
   const [isPlayerReady, setIsPlayerReady] = useState(false)
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(null)
 
-  // Load YouTube API once
   useEffect(() => {
     if (!window.YT) {
       const tag = document.createElement('script')
@@ -55,16 +54,13 @@ export default function MusicPlayer({
     }
   }, [])
 
-  // Initialize/reinitialize player when track changes
   useEffect(() => {
     if (currentTrack && isPlayerReady && playerRef.current) {
       console.log('Track changed to:', currentTrack.title)
       
-      // If player exists and it's just a track change, use loadVideoById instead of destroying
       if (player && currentVideoId !== currentTrack.id) {
         console.log('Loading new video without destroying player')
         
-        // Load new video
         player.loadVideoById({
           videoId: currentTrack.id,
           startSeconds: 0
@@ -72,7 +68,6 @@ export default function MusicPlayer({
         
         setCurrentVideoId(currentTrack.id)
         
-        // Apply current settings
         setTimeout(() => {
           player.setVolume(isMuted ? 0 : volume)
           
@@ -84,7 +79,6 @@ export default function MusicPlayer({
         return
       }
       
-      // Create new player only if none exists
       if (!player) {
         console.log('Creating new player for track:', currentTrack.title)
 
@@ -118,7 +112,6 @@ export default function MusicPlayer({
             onStateChange: (event: any) => {
               console.log('Player state changed:', event.data)
               
-              // Simply call parent's track ended handler - no loop logic here
               if (event.data === window.YT.PlayerState.ENDED) {
                 console.log('Video ended - calling parent handler')
                 onTrackEnded()
@@ -133,7 +126,6 @@ export default function MusicPlayer({
     }
   }, [currentTrack, isPlayerReady])
 
-  // Handle play/pause state changes
   useEffect(() => {
     if (player && player.playVideo && player.pauseVideo) {
       console.log('Updating play state:', isPlaying)
@@ -145,7 +137,6 @@ export default function MusicPlayer({
     }
   }, [isPlaying, player])
 
-  // Handle volume changes
   useEffect(() => {
     if (player && player.setVolume) {
       player.setVolume(isMuted ? 0 : volume)
