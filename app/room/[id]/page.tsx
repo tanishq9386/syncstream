@@ -102,19 +102,58 @@ export default function RoomPage() {
           broadcastToOtherTabs('ROOM_UPDATE', data)
         })
 
-        socketManager.current.onMusicSync((data: { currentTime?: number; isPlaying?: boolean; trackId?: string; timestamp?: number }) => {
-          console.log('Music sync received:', data)
+        socketManager.current.onMusicSync((data: { 
+          action?: string;
+          currentTime?: number; 
+          isPlaying?: boolean; 
+          trackId?: string; 
+          timestamp?: number 
+        }) => {
+          console.log('Music sync received:', data);
           
-          if (data.currentTime !== undefined) setCurrentTime(data.currentTime)
-          if (data.isPlaying !== undefined) setIsPlaying(data.isPlaying)
-          if (data.trackId) {
-            const track = playlist.find(t => t.id === data.trackId)
-            if (track) setCurrentTrack(track)
+          switch (data.action) {
+            case "play":
+              if (data.trackId) {
+                const track = playlist.find(t => t.id === data.trackId);
+                if (track) setCurrentTrack(track);
+              }
+              if (data.currentTime !== undefined) setCurrentTime(data.currentTime);
+              setIsPlaying(true);
+              break;
+              
+            case "pause":
+              if (data.currentTime !== undefined) setCurrentTime(data.currentTime);
+              setIsPlaying(false);
+              break;
+              
+            case "seek":
+              if (data.currentTime !== undefined) setCurrentTime(data.currentTime);
+              if (data.isPlaying !== undefined) setIsPlaying(data.isPlaying);
+              break;
+              
+            case "trackChange":
+              if (data.trackId) {
+                const track = playlist.find(t => t.id === data.trackId);
+                if (track) {
+                  setCurrentTrack(track);
+                  setCurrentTime(0);
+                  setIsPlaying(data.isPlaying || false);
+                }
+              }
+              break;
+              
+            default:
+              // Fallback for legacy sync messages
+              if (data.currentTime !== undefined) setCurrentTime(data.currentTime);
+              if (data.isPlaying !== undefined) setIsPlaying(data.isPlaying);
+              if (data.trackId) {
+                const track = playlist.find(t => t.id === data.trackId);
+                if (track) setCurrentTrack(track);
+              }
           }
 
-          // Broadcast to other tabs
-          broadcastToOtherTabs('MUSIC_SYNC', data)
-        })
+          broadcastToOtherTabs('MUSIC_SYNC', data);
+        });
 
         newSocket.on('music:next', () => {
           console.log('Next track signal received')
@@ -130,11 +169,9 @@ export default function RoomPage() {
             setPlaylist(prev => prev.filter(t => t.id !== data.trackId))
           }
           
-          // Refresh room data to ensure consistency
           fetchRoom()
         })
 
-        // User presence events
         socketManager.current.onRoomUsers((users: string[]) => {
           console.log('Room users updated:', users)
           setConnectedUsers(users)
@@ -282,38 +319,63 @@ export default function RoomPage() {
   }
 
   const handlePlayTrack = async (track: MusicTrack) => {
-    console.log('Playing track:', track)
+    console.log('Playing track:', track);
     const success = await updateRoomState({
       currentSong: track.id,
       isPlaying: true,
       currentTime: 0
-    })
-    
-    if (!success) {
-      console.error('Failed to update room state for track:', track)
-    }
-  }
-
-  const handlePlayPause = async () => {
-    console.log('Play/Pause clicked, current state:', isPlaying)
-    const newPlayingState = !isPlaying
-    
-    const success = await updateRoomState({
-      isPlaying: newPlayingState
-    })
+    });
     
     if (success && socketManager.current && isMainTab.current) {
-      if (newPlayingState) {
-        socketManager.current.playMusic(roomId, currentTrack?.id)
-      } else {
-        socketManager.current.pauseMusic(roomId)
+      // Emit track change event to sync all clients
+      if (socketManager.current.getSocket()) {
+        socketManager.current.getSocket()?.emit('track:change', {
+          roomId,
+          trackId: track.id,
+          autoPlay: true
+        });
       }
     }
     
     if (!success) {
-      console.error('Failed to update play/pause state')
+      console.error('Failed to update room state for track:', track);
     }
-  }
+  };
+
+  const handlePlayPause = async () => {
+    console.log('Play/Pause clicked, current state:', isPlaying);
+    const newPlayingState = !isPlaying;
+    
+    const success = await updateRoomState({
+      isPlaying: newPlayingState,
+      currentTime: currentTime 
+    });
+    
+    if (success && socketManager.current && isMainTab.current) {
+      if (newPlayingState) {
+        socketManager.current.playMusic(roomId, currentTrack?.id);
+        if (socketManager.current.getSocket()) {
+          socketManager.current.getSocket()?.emit('music:play', { 
+            roomId, 
+            trackId: currentTrack?.id, 
+            currentTime 
+          });
+        }
+      } else {
+        socketManager.current.pauseMusic(roomId);
+        if (socketManager.current.getSocket()) {
+          socketManager.current.getSocket()?.emit('music:pause', { 
+            roomId, 
+            currentTime 
+          });
+        }
+      }
+    }
+    
+    if (!success) {
+      console.error('Failed to update play/pause state');
+    }
+  };
 
   const toggleLoopMode = () => {
     const nextMode = loopMode === 'none' ? 'playlist' : loopMode === 'playlist' ? 'single' : 'none'

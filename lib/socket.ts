@@ -105,15 +105,27 @@ class SocketManager {
     }
   }
 
-  playMusic(roomId: string, trackId?: string): void {
+  playMusic(roomId: string, trackId?: string, currentTime: number = 0): void {
     if (this.socket?.connected) {
-      this.socket.emit('music:play', { roomId, trackId })
+      this.socket.emit('music:play', { roomId, trackId, currentTime });
     }
   }
 
-  pauseMusic(roomId: string): void {
+  pauseMusic(roomId: string, currentTime: number = 0): void {
     if (this.socket?.connected) {
-      this.socket.emit('music:pause', { roomId })
+      this.socket.emit('music:pause', { roomId, currentTime });
+    }
+  }
+
+  changeTrack(roomId: string, trackId: string, autoPlay: boolean = true): void {
+    if (this.socket?.connected) {
+      this.socket.emit('track:change', { roomId, trackId, autoPlay });
+    }
+  }
+
+  seekMusic(roomId: string, currentTime: number, isPlaying: boolean): void {
+    if (this.socket?.connected) {
+      this.socket.emit('music:seek', { roomId, currentTime, isPlaying });
     }
   }
 

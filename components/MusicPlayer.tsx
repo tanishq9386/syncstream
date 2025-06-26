@@ -143,6 +143,24 @@ export default function MusicPlayer({
     }
   }, [volume, isMuted, player])
 
+  useEffect(() => {
+    if (player && currentTrack) {
+      const handleExternalSync = () => {
+        const playerCurrentTime = player.getCurrentTime ? player.getCurrentTime() : 0;
+        const timeDiff = Math.abs(playerCurrentTime - currentTime);
+        
+        if (timeDiff > 1) {
+          console.log('Syncing player time from', playerCurrentTime, 'to', currentTime);
+          if (player.seekTo) {
+            player.seekTo(currentTime, true);
+          }
+        }
+      };
+      const timeoutId = setTimeout(handleExternalSync, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [currentTime, player, currentTrack]);
+
   const handleVolumeChange = (newVolume: number) => {
     setVolume(newVolume)
     if (newVolume === 0) {

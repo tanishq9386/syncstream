@@ -57,28 +57,44 @@ app.prepare().then(() => {
       removeUserFromRoom(socket.id, roomId, username);
     });
 
-    socket.on("music:play", ({ roomId, trackId }) => {
-      console.log(`Music play event in room ${roomId}:`, trackId);
-      socket.to(roomId).emit("music:sync", { 
+    socket.on("music:play", ({ roomId, trackId, currentTime = 0 }) => {
+      console.log(`Music play event in room ${roomId}:`, trackId, 'at time:', currentTime);
+      io.to(roomId).emit("music:sync", { 
+        action: "play",
         isPlaying: true, 
         trackId,
+        currentTime,
         timestamp: Date.now()
       });
     });
 
-    socket.on("music:pause", ({ roomId }) => {
-      console.log(`Music pause event in room ${roomId}`);
-      socket.to(roomId).emit("music:sync", { 
+    socket.on("music:pause", ({ roomId, currentTime = 0 }) => {
+      console.log(`Music pause event in room ${roomId} at time:`, currentTime);
+      io.to(roomId).emit("music:sync", { 
+        action: "pause",
         isPlaying: false,
+        currentTime,
         timestamp: Date.now()
       });
     });
 
-    socket.on("music:sync", ({ roomId, currentTime, isPlaying }) => {
-      console.log(`Music sync in room ${roomId}:`, { currentTime, isPlaying });
-      socket.to(roomId).emit("music:sync", { 
-        currentTime, 
+    socket.on("music:seek", ({ roomId, currentTime, isPlaying }) => {
+      console.log(`Music seek in room ${roomId} to time:`, currentTime);
+      io.to(roomId).emit("music:sync", { 
+        action: "seek",
+        currentTime,
         isPlaying,
+        timestamp: Date.now()
+      });
+    });
+
+    socket.on("track:change", ({ roomId, trackId, autoPlay = true }) => {
+      console.log(`Track change in room ${roomId} to:`, trackId);
+      io.to(roomId).emit("music:sync", {
+        action: "trackChange",
+        trackId,
+        isPlaying: autoPlay,
+        currentTime: 0,
         timestamp: Date.now()
       });
     });
