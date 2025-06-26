@@ -21,6 +21,7 @@ export default function RoomPage() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loopMode, setLoopMode] = useState<'none' | 'playlist' | 'single'>('none')
 
   useEffect(() => {
     const newSocket = io()
@@ -31,6 +32,7 @@ export default function RoomPage() {
 
     // Socket event listeners
     newSocket.on('room:updated', (updatedRoom: Room) => {
+      console.log('Room updated via socket:', updatedRoom)
       setRoom(updatedRoom)
       setPlaylist(updatedRoom.playlist)
       setIsPlaying(updatedRoom.isPlaying)
@@ -43,6 +45,7 @@ export default function RoomPage() {
     })
 
     newSocket.on('music:sync', (data: { currentTime: number; isPlaying: boolean }) => {
+      console.log('Music sync received:', data)
       setCurrentTime(data.currentTime)
       setIsPlaying(data.isPlaying)
     })
@@ -58,8 +61,11 @@ export default function RoomPage() {
 
   const fetchRoom = async () => {
     try {
+      console.log('Fetching room data...')
       const response = await fetch(`/api/rooms/${roomId}`)
       const data = await response.json()
+      
+      console.log('Room data received:', data)
       
       if (data.success) {
         setRoom(data.room)
@@ -70,6 +76,7 @@ export default function RoomPage() {
         if (data.room.currentSong) {
           const track = data.room.playlist.find((t: MusicTrack) => t.id === data.room.currentSong)
           setCurrentTrack(track || null)
+          console.log('Current track set:', track)
         }
       }
     } catch (error) {
@@ -79,40 +86,282 @@ export default function RoomPage() {
     }
   }
 
-  const handlePlayPause = () => {
-    if (socket) {
-      socket.emit(isPlaying ? 'music:pause' : 'music:play', { roomId })
+  const updateRoomState = async (updates: any) => {
+    try {
+      console.log('Updating room state:', updates)
+      const response = await fetch(`/api/rooms/${roomId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log('Room state updated:', result)
+        
+        // Update local state immediately
+        if (updates.currentSong !== undefined) {
+          const track = playlist.find(t => t.id === updates.currentSong)
+          setCurrentTrack(track || null)
+        }
+        if (updates.isPlaying !== undefined) {
+          setIsPlaying(updates.isPlaying)
+        }
+        if (updates.currentTime !== undefined) {
+          setCurrentTime(updates.currentTime)
+        }
+        
+        // Emit socket event for real-time sync
+        if (socket) {
+          socket.emit('room:update', { roomId, updates })
+        }
+        
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error('Error updating room state:', error)
+      return false
     }
   }
 
-  const handleNext = () => {
-    if (socket) {
-      socket.emit('music:next', { roomId })
+  const handlePlayTrack = async (track: MusicTrack) => {
+    console.log('Playing track:', track)
+    const success = await updateRoomState({
+      currentSong: track.id,
+      isPlaying: true,
+      currentTime: 0
+    })
+    
+    if (!success) {
+      console.error('Failed to update room state for track:', track)
     }
   }
 
-  const handleAddTrack = (track: MusicTrack) => {
-    if (socket) {
-      socket.emit('music:add', { roomId, track })
+  const handlePlayPause = async () => {
+    console.log('Play/Pause clicked, current state:', isPlaying)
+    const success = await updateRoomState({
+      isPlaying: !isPlaying
+    })
+    
+    if (!success) {
+      console.error('Failed to update play/pause state')
+    }
+  }
+
+  const toggleLoopMode = () => {
+    const nextMode = loopMode === 'none' ? 'playlist' : loopMode === 'playlist' ? 'single' : 'none'
+    setLoopMode(nextMode)
+    console.log('Loop mode changed to:', nextMode)
+  }
+
+  // Custom loop logic - this handles all looping behavior
+  const handleTrackEnded = async () => {
+    console.log('Track ended, loop mode:', loopMode)
+    
+    if (loopMode === 'single' && currentTrack) {
+      console.log('Single loop: restarting current track')
+      // Restart the same track
+      await updateRoomState({
+        currentSong: currentTrack.id,
+        isPlaying: true,
+        currentTime: 0
+      })
+      return
+    }
+    
+    // For playlist loop or normal mode, go to next track
+    await handleNext()
+  }
+
+  const handleNext = async () => {
+    console.log('Next clicked, current playlist:', playlist)
+    console.log('Current track:', currentTrack)
+    console.log('Loop mode:', loopMode)
+    
+    if (playlist.length === 0) {
+      console.log('No tracks in playlist')
+      return
+    }
+
+    const currentIndex = playlist.findIndex(track => track.id === currentTrack?.id)
+    console.log('Current track index:', currentIndex)
+    
+    // Calculate next index
+    let nextIndex = (currentIndex + 1) % playlist.length
+    
+    // Handle end of playlist based on loop mode
+    if (currentIndex === playlist.length - 1) {
+      if (loopMode === 'playlist') {
+        console.log('Playlist loop: going to start')
+        nextIndex = 0
+      } else if (loopMode === 'none') {
+        console.log('End of playlist, stopping playback')
+        await updateRoomState({ isPlaying: false })
+        return
+      }
+    }
+    
+    const nextTrack = playlist[nextIndex]
+    console.log('Next track:', nextTrack)
+    
+    if (nextTrack) {
+      await handlePlayTrack(nextTrack)
+    }
+  }
+
+  const handlePrevious = async () => {
+    console.log('Previous clicked, current playlist:', playlist)
+    console.log('Current track:', currentTrack)
+    console.log('Loop mode:', loopMode)
+    
+    if (playlist.length === 0) {
+      console.log('No tracks in playlist')
+      return
+    }
+
+    const currentIndex = playlist.findIndex(track => track.id === currentTrack?.id)
+    console.log('Current track index:', currentIndex)
+    
+    // Calculate previous index
+    let previousIndex = currentIndex <= 0 ? playlist.length - 1 : currentIndex - 1
+    
+    // Handle start of playlist based on loop mode
+    if (currentIndex === 0) {
+      if (loopMode === 'playlist') {
+        console.log('Playlist loop: going to end')
+        previousIndex = playlist.length - 1
+      } else if (loopMode === 'none') {
+        console.log('Start of playlist, staying at first track')
+        previousIndex = 0
+      }
+    }
+    
+    const previousTrack = playlist[previousIndex]
+    console.log('Previous track:', previousTrack)
+    
+    if (previousTrack) {
+      await handlePlayTrack(previousTrack)
+    }
+  }
+
+  const handleAddTrack = async (track: MusicTrack) => {
+    try {
+      console.log('Adding track:', track)
+      const response = await fetch(`/api/rooms/${roomId}/playlist`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ track }),
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        console.log('Track added successfully')
+        // Refresh room data to get updated playlist
+        await fetchRoom()
+        
+        // Auto-play if no current track
+        if (!currentTrack) {
+          console.log('Auto-playing first track')
+          await handlePlayTrack(track)
+        }
+        
+        if (socket) {
+          socket.emit('music:add', { roomId, track })
+        }
+      } else {
+        console.error('Failed to add track:', result.error)
+      }
+    } catch (error) {
+      console.error('Error adding track:', error)
     }
   }
 
   const handleRemoveTrack = async (trackId: string) => {
     try {
-      await fetch(`/api/rooms/${roomId}/playlist`, {
+      console.log('Removing track:', trackId)
+      const response = await fetch(`/api/rooms/${roomId}/playlist`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trackId })
       })
+
+      const result = await response.json()
+      console.log('Remove track response:', result)
+
+      if (response.ok && result.success) {
+        console.log('Track removed successfully')
+        
+        // Update local playlist state immediately
+        const updatedPlaylist = playlist.filter(track => track.id !== trackId)
+        setPlaylist(updatedPlaylist)
+        
+        // If removed track was current track, handle appropriately
+        if (currentTrack?.id === trackId) {
+          console.log('Removed track was currently playing')
+          
+          if (updatedPlaylist.length === 0) {
+            // No tracks left, stop everything
+            console.log('No tracks left in playlist')
+            setCurrentTrack(null)
+            await updateRoomState({
+              currentSong: null,
+              isPlaying: false,
+              playlist: []
+            })
+          } else {
+            // Play next track or first track
+            const currentIndex = playlist.findIndex(track => track.id === trackId)
+            let nextTrack = updatedPlaylist[currentIndex] || updatedPlaylist[0]
+            
+            console.log('Playing next track after removal:', nextTrack)
+            await updateRoomState({
+              currentSong: nextTrack.id,
+              isPlaying: true,
+              currentTime: 0,
+              playlist: updatedPlaylist
+            })
+          }
+        } else {
+          // Just update the playlist in the database
+          await updateRoomState({
+            playlist: updatedPlaylist
+          })
+        }
+        
+        // Refresh room data to ensure consistency
+        await fetchRoom()
+        
+        // Emit socket event for real-time sync
+        if (socket) {
+          socket.emit('track:removed', { roomId, trackId, updatedPlaylist })
+        }
+      } else {
+        console.error('Failed to remove track:', result.error || 'Unknown error')
+      }
     } catch (error) {
       console.error('Error removing track:', error)
     }
   }
 
+
   const handleTimeUpdate = (time: number) => {
+    setCurrentTime(time)
     if (socket) {
       socket.emit('music:sync', { roomId, currentTime: time, isPlaying })
     }
+  }
+
+  // Check if there's a previous track available
+  const hasPreviousTrack = () => {
+    if (playlist.length <= 1) return false
+    const currentIndex = playlist.findIndex(track => track.id === currentTrack?.id)
+    return currentIndex > 0 || playlist.length > 1
   }
 
   if (loading) {
@@ -143,7 +392,12 @@ export default function RoomPage() {
               currentTime={currentTime}
               onPlayPause={handlePlayPause}
               onNext={handleNext}
+              onPrevious={handlePrevious}
               onTimeUpdate={handleTimeUpdate}
+              onTrackEnded={handleTrackEnded}  // Add this new prop
+              hasPreviousTrack={hasPreviousTrack()}
+              loopMode={loopMode}
+              onToggleLoop={toggleLoopMode}
             />
             
             <MusicSearch onAddTrack={handleAddTrack} />
@@ -155,6 +409,8 @@ export default function RoomPage() {
               room={room}
               playlist={playlist}
               onRemoveTrack={handleRemoveTrack}
+              onPlayTrack={handlePlayTrack}
+              currentTrack={currentTrack || undefined}  // Add this line
             />
           </div>
         </div>

@@ -2,7 +2,7 @@ import { NextApiRequest } from 'next'
 import { Server as ServerIO } from 'socket.io'
 import { Server as NetServer } from 'http'
 import { NextApiResponseServerIO } from '@/lib/socket'
-import { prisma } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 
 export default async function SocketHandler(
   req: NextApiRequest,

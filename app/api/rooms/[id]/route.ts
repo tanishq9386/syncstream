@@ -1,5 +1,7 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(
   request: NextRequest,
@@ -25,5 +27,24 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching room:', error)
     return NextResponse.json({ success: false, error: 'Failed to fetch room' })
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const updates = await request.json()
+    
+    const room = await prisma.room.update({
+      where: { id: params.id },
+      data: updates
+    })
+    
+    return NextResponse.json({ success: true, room })
+  } catch (error) {
+    console.error('Error updating room:', error)
+    return NextResponse.json({ success: false, error: 'Failed to update room' }, { status: 500 })
   }
 }

@@ -1,15 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { Play, Pause, SkipForward, Volume2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Repeat, Repeat1 } from 'lucide-react'
 import { MusicTrack } from '@/types'
-
-declare global {
-  interface Window {
-    YT: any
-    onYouTubeIframeAPIReady: () => void
-  }
-}
 
 interface MusicPlayerProps {
   currentTrack?: MusicTrack
@@ -17,7 +10,12 @@ interface MusicPlayerProps {
   currentTime: number
   onPlayPause: () => void
   onNext: () => void
+  onPrevious: () => void
   onTimeUpdate: (time: number) => void
+  onTrackEnded: () => void  // Add this new prop
+  hasPreviousTrack: boolean
+  loopMode: 'none' | 'playlist' | 'single'
+  onToggleLoop: () => void
 }
 
 export default function MusicPlayer({
@@ -26,138 +24,269 @@ export default function MusicPlayer({
   currentTime,
   onPlayPause,
   onNext,
-  onTimeUpdate
+  onPrevious,
+  onTimeUpdate,
+  onTrackEnded,  // Add this
+  hasPreviousTrack,
+  loopMode,
+  onToggleLoop
 }: MusicPlayerProps) {
   const playerRef = useRef<any>(null)
+  const [player, setPlayer] = useState<any>(null)
   const [volume, setVolume] = useState(50)
-  const [apiReady, setApiReady] = useState(false)
+  const [isMuted, setIsMuted] = useState(false)
+  const [isPlayerReady, setIsPlayerReady] = useState(false)
+  const [currentVideoId, setCurrentVideoId] = useState<string | null>(null)
 
+  // Load YouTube API once
   useEffect(() => {
     if (!window.YT) {
       const tag = document.createElement('script')
       tag.src = 'https://www.youtube.com/iframe_api'
       const firstScriptTag = document.getElementsByTagName('script')[0]
       firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
-      
+
       window.onYouTubeIframeAPIReady = () => {
-        setApiReady(true)
+        console.log('YouTube API ready')
+        setIsPlayerReady(true)
       }
     } else {
-      setApiReady(true)
+      setIsPlayerReady(true)
     }
   }, [])
 
+  // Initialize/reinitialize player when track changes
   useEffect(() => {
-    if (currentTrack && apiReady && window.YT) {
-      initializePlayer()
-    }
-  }, [currentTrack, apiReady])
-
-  const initializePlayer = () => {
-    if (playerRef.current) {
-      playerRef.current.destroy()
-    }
-
-    playerRef.current = new window.YT.Player('youtube-player', {
-      height: '0',
-      width: '0',
-      videoId: currentTrack?.id,
-      playerVars: {
-        autoplay: 0,
-        controls: 0,
-        disablekb: 1,
-        fs: 0,
-        modestbranding: 1,
-        rel: 0
-      },
-      events: {
-        onReady: (event: any) => {
-          event.target.setVolume(volume)
-        },
-        onStateChange: (event: any) => {
-          if (event.data === window.YT.PlayerState.ENDED) {
-            onNext()
+    if (currentTrack && isPlayerReady && playerRef.current) {
+      console.log('Track changed to:', currentTrack.title)
+      
+      // If player exists and it's just a track change, use loadVideoById instead of destroying
+      if (player && currentVideoId !== currentTrack.id) {
+        console.log('Loading new video without destroying player')
+        
+        // Load new video
+        player.loadVideoById({
+          videoId: currentTrack.id,
+          startSeconds: 0
+        })
+        
+        setCurrentVideoId(currentTrack.id)
+        
+        // Apply current settings
+        setTimeout(() => {
+          player.setVolume(isMuted ? 0 : volume)
+          
+          if (isPlaying) {
+            player.playVideo()
           }
-        }
+        }, 100)
+        
+        return
       }
-    })
+      
+      // Create new player only if none exists
+      if (!player) {
+        console.log('Creating new player for track:', currentTrack.title)
+
+        const newPlayer = new window.YT.Player(playerRef.current, {
+          height: '200',
+          width: '100%',
+          videoId: currentTrack.id,
+          playerVars: {
+            autoplay: isPlaying ? 1 : 0,
+            controls: 0,
+            disablekb: 1,
+            fs: 0,
+            iv_load_policy: 3,
+            modestbranding: 1,
+            rel: 0,
+            origin: window.location.origin,
+            enablejsapi: 1
+          },
+          events: {
+            onReady: (event: any) => {
+              console.log('Player ready for:', currentTrack.title)
+              setPlayer(event.target)
+              setCurrentVideoId(currentTrack.id)
+              event.target.setVolume(isMuted ? 0 : volume)
+              
+              if (isPlaying) {
+                console.log('Auto-playing new track')
+                event.target.playVideo()
+              }
+            },
+            onStateChange: (event: any) => {
+              console.log('Player state changed:', event.data)
+              
+              // Simply call parent's track ended handler - no loop logic here
+              if (event.data === window.YT.PlayerState.ENDED) {
+                console.log('Video ended - calling parent handler')
+                onTrackEnded()
+              }
+            },
+            onError: (event: any) => {
+              console.error('YouTube player error:', event.data)
+            }
+          }
+        })
+      }
+    }
+  }, [currentTrack, isPlayerReady])
+
+  // Handle play/pause state changes
+  useEffect(() => {
+    if (player && player.playVideo && player.pauseVideo) {
+      console.log('Updating play state:', isPlaying)
+      if (isPlaying) {
+        player.playVideo()
+      } else {
+        player.pauseVideo()
+      }
+    }
+  }, [isPlaying, player])
+
+  // Handle volume changes
+  useEffect(() => {
+    if (player && player.setVolume) {
+      player.setVolume(isMuted ? 0 : volume)
+    }
+  }, [volume, isMuted, player])
+
+  const handleVolumeChange = (newVolume: number) => {
+    setVolume(newVolume)
+    if (newVolume === 0) {
+      setIsMuted(true)
+    } else {
+      setIsMuted(false)
+    }
   }
 
-  useEffect(() => {
-    if (playerRef.current && playerRef.current.playVideo) {
-      if (isPlaying) {
-        playerRef.current.playVideo()
-      } else {
-        playerRef.current.pauseVideo()
-      }
-    }
-  }, [isPlaying])
+  const toggleMute = () => {
+    setIsMuted(!isMuted)
+  }
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, '0')}`
+  const getLoopIcon = () => {
+    switch (loopMode) {
+      case 'single':
+        return <Repeat1 className="w-5 h-5" />
+      case 'playlist':
+        return <Repeat className="w-5 h-5" />
+      default:
+        return <Repeat className="w-5 h-5" />
+    }
+  }
+
+  const getLoopButtonClass = () => {
+    const baseClass = "p-2 rounded-full transition-colors"
+    switch (loopMode) {
+      case 'single':
+        return `${baseClass} bg-green-500 hover:bg-green-600 text-white`
+      case 'playlist':
+        return `${baseClass} bg-purple-500 hover:bg-purple-600 text-white`
+      default:
+        return `${baseClass} bg-gray-600 hover:bg-gray-500 text-gray-300`
+    }
+  }
+
+  const getLoopTooltip = () => {
+    switch (loopMode) {
+      case 'single':
+        return 'Loop: Single Track'
+      case 'playlist':
+        return 'Loop: Playlist'
+      default:
+        return 'Loop: Off'
+    }
   }
 
   if (!currentTrack) {
     return (
       <div className="bg-gray-800 p-6 rounded-lg">
-        <p className="text-center text-gray-400">No track selected</p>
+        <div className="text-center text-gray-400">
+          <p>No track selected</p>
+          <p className="text-sm mt-2">Add songs to your playlist to start listening</p>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="bg-gray-800 p-6 rounded-lg">
-      <div id="youtube-player" style={{ display: 'none' }}></div>
-      
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 mb-4">
         {currentTrack.thumbnail && (
           <img
             src={currentTrack.thumbnail}
             alt={currentTrack.title}
-            className="w-16 h-16 rounded-lg object-cover"
+            className="w-16 h-16 rounded object-cover"
           />
         )}
-        
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold truncate text-white">{currentTrack.title}</h3>
-          <p className="text-sm text-gray-400 truncate">{currentTrack.artist}</p>
+          <h3 className="font-semibold text-white truncate">{currentTrack.title}</h3>
+          <p className="text-gray-400 truncate">{currentTrack.artist}</p>
+          <p className="text-xs text-purple-400 mt-1">{getLoopTooltip()}</p>
         </div>
+      </div>
+
+      {/* YouTube Player (hidden) */}
+      <div style={{ display: 'none' }}>
+        <div ref={playerRef}></div>
+      </div>
+
+      {/* Volume Control */}
+      <div className="flex items-center gap-3 mb-4">
+        <button
+          onClick={toggleMute}
+          className="p-2 text-gray-400 hover:text-white transition-colors"
+        >
+          {isMuted || volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+        </button>
+        <div className="flex-1 max-w-32">
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={isMuted ? 0 : volume}
+            onChange={(e) => handleVolumeChange(Number(e.target.value))}
+            className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
+            style={{
+              background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${isMuted ? 0 : volume}%, #4b5563 ${isMuted ? 0 : volume}%, #4b5563 100%)`
+            }}
+          />
+        </div>
+        <span className="text-sm text-gray-400 w-8">{isMuted ? 0 : volume}</span>
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center justify-center gap-4">
+        <button
+          onClick={onPrevious}
+          disabled={!hasPreviousTrack}
+          className="p-2 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:opacity-50 rounded-full transition-colors"
+        >
+          <SkipBack className="w-5 h-5" />
+        </button>
         
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onPlayPause}
-            className="p-3 rounded-full bg-purple-500 hover:bg-purple-600 transition-colors"
-          >
-            {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-          </button>
-          
-          <button
-            onClick={onNext}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-          >
-            <SkipForward className="w-4 h-4" />
-          </button>
-          
-          <div className="flex items-center gap-2">
-            <Volume2 className="w-4 h-4 text-white" />
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={volume}
-              onChange={(e) => {
-                const newVolume = parseInt(e.target.value)
-                setVolume(newVolume)
-                if (playerRef.current && playerRef.current.setVolume) {
-                  playerRef.current.setVolume(newVolume)
-                }
-              }}
-              className="w-20"
-            />
-          </div>
-        </div>
+        <button
+          onClick={onPlayPause}
+          className="p-3 bg-purple-500 hover:bg-purple-600 rounded-full transition-colors"
+        >
+          {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
+        </button>
+        
+        <button
+          onClick={onNext}
+          className="p-2 bg-gray-600 hover:bg-gray-500 rounded-full transition-colors"
+        >
+          <SkipForward className="w-5 h-5" />
+        </button>
+        
+        <button
+          onClick={onToggleLoop}
+          className={getLoopButtonClass()}
+          title={getLoopTooltip()}
+        >
+          {getLoopIcon()}
+        </button>
       </div>
     </div>
   )
