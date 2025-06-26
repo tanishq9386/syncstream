@@ -12,8 +12,8 @@ import { Room, MusicTrack, User } from 'types'
 export default function RoomPage() {
   const params = useParams()
   const searchParams = useSearchParams()
-  const roomId = params.id as string
-  const username = searchParams.get('username') || 'Anonymous'
+  const roomId = params?.id as string || ''
+  const username = searchParams?.get('username') || 'Anonymous'
 
   const [socket, setSocket] = useState<Socket | null>(null)
   const [room, setRoom] = useState<Room | null>(null)

@@ -83,11 +83,11 @@ export async function PATCH(
     }
     
     // Handle Prisma-specific errors
-    if (error.code === 'P2002') {
+    if ((error as any).code === 'P2002') {
       return NextResponse.json({ success: false, error: 'Constraint violation' }, { status: 400 })
     }
     
-    if (error.code === 'P2025') {
+    if ((error as any).code === 'P2025') {
       return NextResponse.json({ success: false, error: 'Record not found' }, { status: 404 })
     }
   }

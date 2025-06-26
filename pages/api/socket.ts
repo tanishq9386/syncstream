@@ -78,7 +78,7 @@ export default async function SocketHandler(
           await prisma.room.update({
             where: { id: roomId },
             data: {
-              currentSong: nextTrack?.id || null,
+              currentSong: (nextTrack as any).id || null,
               currentTime: 0
             }
           })

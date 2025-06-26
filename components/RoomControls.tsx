@@ -78,7 +78,7 @@ export default function RoomControls({
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                 <span className="text-sm text-gray-300 flex-1">{user}</span>
                 {index === 0 && (
-                  <Crown className="w-3 h-3 text-yellow-400" title="Room Host" />
+                  <Crown className="w-3 h-3 text-yellow-400"/>
                 )}
               </div>
             ))}

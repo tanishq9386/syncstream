@@ -162,7 +162,7 @@ export async function DELETE(
           let additionalUpdates = {}
           if(nextTrack){
             additionalUpdates = {
-              currentSong: nextTrack.id,
+              currentSong: (nextTrack as any).id,
               currentTime: 0
             }
           }
