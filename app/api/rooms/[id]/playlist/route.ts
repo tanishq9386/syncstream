@@ -159,10 +159,12 @@ export async function DELETE(
         } else {
           const currentIndex = playlist.findIndex((track: any) => track.id === trackId)
           const nextTrack = updatedPlaylist[currentIndex] || updatedPlaylist[0]
-          
-          additionalUpdates = {
-            currentSong: nextTrack.id,
-            currentTime: 0
+          let additionalUpdates = {}
+          if(nextTrack){
+            additionalUpdates = {
+              currentSong: nextTrack.id,
+              currentTime: 0
+            }
           }
         }
         
