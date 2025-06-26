@@ -85,16 +85,16 @@ export async function POST(
   } catch (error) {
     console.error('API: Error adding track:', error)
     if (error instanceof Error) {
-    if (error.message === 'Room not found') {
-      return NextResponse.json({ success: false, error: 'Room not found' }, { status: 404 })
+      if (error.message === 'Room not found') {
+        return NextResponse.json({ success: false, error: 'Room not found' }, { status: 404 })
+      }
+      
+      if (error.message === 'Track already in playlist') {
+        return NextResponse.json({ success: false, error: 'Track already in playlist' }, { status: 409 })
+      }
+      
+      return NextResponse.json({ success: false, error: 'Failed to add track' }, { status: 500 })
     }
-    
-    if (error.message === 'Track already in playlist') {
-      return NextResponse.json({ success: false, error: 'Track already in playlist' }, { status: 409 })
-    }
-    
-    return NextResponse.json({ success: false, error: 'Failed to add track' }, { status: 500 })
-  }
     return NextResponse.json({ 
       success: false, 
       error: 'An unknown error occurred' 
@@ -159,8 +159,7 @@ export async function DELETE(
         } else {
           const currentIndex = playlist.findIndex((track: any) => track.id === trackId)
           const nextTrack = updatedPlaylist[currentIndex] || updatedPlaylist[0]
-          let additionalUpdates = {}
-          if(nextTrack){
+          if (nextTrack) {
             additionalUpdates = {
               currentSong: (nextTrack as any).id,
               currentTime: 0
@@ -194,16 +193,17 @@ export async function DELETE(
   } catch (error) {
     console.error('API: Error removing track:', error)
     if (error instanceof Error) {
-    if (error.message === 'Room not found') {
-      return NextResponse.json({ success: false, error: 'Room not found' }, { status: 404 })
+      if (error.message === 'Room not found') {
+        return NextResponse.json({ success: false, error: 'Room not found' }, { status: 404 })
+      }
+      
+      if (error.message === 'Track not found in playlist') {
+        return NextResponse.json({ success: false, error: 'Track not found in playlist' }, { status: 404 })
+      }
+      
+      return NextResponse.json({ success: false, error: 'Failed to remove track' }, { status: 500 })
     }
-    
-    if (error.message === 'Track not found in playlist') {
-      return NextResponse.json({ success: false, error: 'Track not found in playlist' }, { status: 404 })
-    }
-    
-    return NextResponse.json({ success: false, error: 'Failed to remove track' }, { status: 500 })
-  }
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -252,11 +252,12 @@ export async function PUT(
   } catch (error) {
     console.error('API: Error updating playlist:', error)
     if (error instanceof Error) {
-    if (error.message === 'Room not found') {
-      return NextResponse.json({ success: false, error: 'Room not found' }, { status: 404 })
+      if (error.message === 'Room not found') {
+        return NextResponse.json({ success: false, error: 'Room not found' }, { status: 404 })
+      }
+      
+      return NextResponse.json({ success: false, error: 'Failed to update playlist' }, { status: 500 })
     }
-    
-    return NextResponse.json({ success: false, error: 'Failed to update playlist' }, { status: 500 })
-  }
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
   }
 }
