@@ -8,7 +8,10 @@ export async function POST(request: NextRequest) {
     const { code, username } = await request.json()
 
     if (!code || !username) {
-      return NextResponse.json({ success: false, error: 'Missing required fields' })
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Missing required fields' 
+      }, { status: 400 })
     }
 
     // Find room by code
@@ -18,7 +21,10 @@ export async function POST(request: NextRequest) {
     })
 
     if (!room) {
-      return NextResponse.json({ success: false, error: 'Room not found' })
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Room not found' 
+      }, { status: 404 })
     }
 
     // Create user and add to room
@@ -34,9 +40,33 @@ export async function POST(request: NextRequest) {
       include: { users: true }
     })
 
-    return NextResponse.json({ success: true, room: updatedRoom })
+    return NextResponse.json({ 
+      success: true, 
+      room: updatedRoom 
+    })
   } catch (error) {
     console.error('Error joining room:', error)
-    return NextResponse.json({ success: false, error: 'Failed to join room' })
+
+    if (error instanceof Error) {
+      // Handle Prisma unique constraint error (username already exists in room)
+      if ((error as any).code === 'P2002') {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Username already taken in this room' 
+        }, { status: 409 })
+      }
+
+      // Handle other known errors
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Failed to join room' 
+      }, { status: 500 })
+    }
+
+    // Handle non-Error objects
+    return NextResponse.json({ 
+      success: false, 
+      error: 'An unknown error occurred' 
+    }, { status: 500 })
   }
 }

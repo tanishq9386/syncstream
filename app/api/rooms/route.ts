@@ -8,7 +8,10 @@ export async function POST(request: NextRequest) {
     const { name, username } = await request.json()
 
     if (!name || !username) {
-      return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 })
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Missing required fields' 
+      }, { status: 400 })
     }
 
     // Generate unique room code
@@ -34,9 +37,49 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ success: true, room })
+    return NextResponse.json({ 
+      success: true, 
+      room 
+    })
   } catch (error) {
     console.error('Error creating room:', error)
-    return NextResponse.json({ success: false, error: 'Failed to create room' }, { status: 500 })
+
+    if (error instanceof Error) {
+      // Handle Prisma unique constraint error (room code collision)
+      if ((error as any).code === 'P2002') {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Room code collision. Please try again.' 
+        }, { status: 409 })
+      }
+
+      // Handle foreign key constraint error
+      if ((error as any).code === 'P2003') {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Database constraint error' 
+        }, { status: 400 })
+      }
+
+      // Handle other database errors
+      if ((error as any).code && (error as any).code.startsWith('P')) {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Database operation failed' 
+        }, { status: 500 })
+      }
+
+      // Handle other known errors
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Failed to create room' 
+      }, { status: 500 })
+    }
+
+    // Handle non-Error objects
+    return NextResponse.json({ 
+      success: false, 
+      error: 'An unknown error occurred' 
+    }, { status: 500 })
   }
 }
