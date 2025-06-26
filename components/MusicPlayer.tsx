@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Repeat, Repeat1 } from 'lucide-react'
-import { MusicTrack } from '@/types'
+import { MusicTrack } from 'types'
 
 interface MusicPlayerProps {
   currentTrack?: MusicTrack

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Copy, Users, Music, Wifi, WifiOff, Crown } from 'lucide-react'
-import { Room, MusicTrack } from '@/types'
+import { Room, MusicTrack } from 'types'
 
 interface RoomControlsProps {
   room: Room

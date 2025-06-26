@@ -1,4 +1,15 @@
 import { io, Socket } from 'socket.io-client'
+import { NextApiResponse } from 'next'
+import { Server as NetServer } from 'http'
+import { Server as SocketIOServer } from 'socket.io'
+
+export type NextApiResponseServerIO = NextApiResponse & {
+  socket: {
+    server: NetServer & {
+      io: SocketIOServer
+    }
+  }
+}
 
 class SocketManager {
   private socket: Socket | null = null

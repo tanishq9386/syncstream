@@ -84,7 +84,7 @@ export async function POST(
     })
   } catch (error) {
     console.error('API: Error adding track:', error)
-    
+    if (error instanceof Error) {
     if (error.message === 'Room not found') {
       return NextResponse.json({ success: false, error: 'Room not found' }, { status: 404 })
     }
@@ -94,6 +94,11 @@ export async function POST(
     }
     
     return NextResponse.json({ success: false, error: 'Failed to add track' }, { status: 500 })
+  }
+    return NextResponse.json({ 
+      success: false, 
+      error: 'An unknown error occurred' 
+    }, { status: 500 })
   }
 }
 
@@ -186,7 +191,7 @@ export async function DELETE(
     })
   } catch (error) {
     console.error('API: Error removing track:', error)
-    
+    if (error instanceof Error) {
     if (error.message === 'Room not found') {
       return NextResponse.json({ success: false, error: 'Room not found' }, { status: 404 })
     }
@@ -196,6 +201,7 @@ export async function DELETE(
     }
     
     return NextResponse.json({ success: false, error: 'Failed to remove track' }, { status: 500 })
+  }
   }
 }
 
@@ -243,11 +249,12 @@ export async function PUT(
     })
   } catch (error) {
     console.error('API: Error updating playlist:', error)
-    
+    if (error instanceof Error) {
     if (error.message === 'Room not found') {
       return NextResponse.json({ success: false, error: 'Room not found' }, { status: 404 })
     }
     
     return NextResponse.json({ success: false, error: 'Failed to update playlist' }, { status: 500 })
+  }
   }
 }

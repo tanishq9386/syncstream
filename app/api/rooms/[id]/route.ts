@@ -76,7 +76,7 @@ export async function PATCH(
     return NextResponse.json({ success: true, room: roomWithPlaylist })
   } catch (error) {
     console.error('Error updating room:', error)
-    
+    if (error instanceof Error) {
     // Handle specific error types
     if (error.message === 'Room not found') {
       return NextResponse.json({ success: false, error: 'Room not found' }, { status: 404 })
@@ -90,7 +90,7 @@ export async function PATCH(
     if (error.code === 'P2025') {
       return NextResponse.json({ success: false, error: 'Record not found' }, { status: 404 })
     }
-    
+  }
     return NextResponse.json({ success: false, error: 'Failed to update room' }, { status: 500 })
   }
 }
@@ -121,11 +121,11 @@ export async function DELETE(
     return NextResponse.json({ success: true, message: 'Room deleted successfully' })
   } catch (error) {
     console.error('Error deleting room:', error)
-    
+    if (error instanceof Error) {
     if (error.message === 'Room not found') {
       return NextResponse.json({ success: false, error: 'Room not found' }, { status: 404 })
     }
-    
+  }
     return NextResponse.json({ success: false, error: 'Failed to delete room' }, { status: 500 })
   }
 }

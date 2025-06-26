@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Search, Plus } from 'lucide-react'
-import { MusicTrack } from '@/types'
+import { MusicTrack } from 'types'
 
 interface MusicSearchProps {
   onAddTrack: (track: MusicTrack) => void
