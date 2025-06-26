@@ -4,10 +4,10 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import SocketManager from '@/lib/socket'
 import type { Socket } from 'socket.io-client'
-import MusicPlayer from '@/components/MusicPlayer'
-import MusicSearch from '@/components/MusicSearch'
-import RoomControls from '@/components/RoomControls'
-import { Room, MusicTrack, User } from '@/types'
+import MusicPlayer from 'components/MusicPlayer'
+import MusicSearch from 'components/MusicSearch'
+import RoomControls from 'components/RoomControls'
+import { Room, MusicTrack, User } from 'types'
 
 export default function RoomPage() {
   const params = useParams()
